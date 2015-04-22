@@ -1,0 +1,69 @@
+---
+- hosts: all
+  remote_user: root
+  sudo: True
+  vars:
+    naehfein_password: $1$riethmay$O8ZLVLj25yKx/KU.dAm7C/
+
+  pre_tasks:
+    - name: upgrading all systems
+      apt: update_cache=yes upgrade=yes
+      tags: provision
+    - name: "install curl"
+      apt: name=curl state=latest
+      tags: provision
+    - name: "install git"
+      apt: name=git state=latest
+      tags: provision
+
+  roles:
+    - role: "franklinkim.vsftpd"
+      vars:
+        vsftpd_service_enabled: yes
+        vsftpd_service_state: started
+      vsftpd_config:
+        local_enable: YES
+        write_enable: YES
+
+    - role: "bennojoy.nginx"
+      nginx_max_clients: 512
+      nginx_http_params:
+        sendfile: "on"
+        tcp_nopush: "on"
+        tcp_nodelay: "on"
+        keepalive_timeout: "65"
+      nginx_sites:
+        - server:
+            file_name: naehfein
+            listen: 80
+            server_name: naehfein.de
+            root: "/home/naehfein"
+            location1: {name: /, try_files: "$uri $uri/ /index.html"}
+            location2: {name: /images/, try_files: "$uri $uri/ /index.html"}
+
+  tasks:
+    - name: add admin group
+      group: name=admin state=present
+      tags: provision
+    - name: "add user: riethmayer (admin)"
+      user: name=riethmayer group=admin createhome=yes
+      tags: provision
+    - name: "add user: naehfein (www-data)"
+      user:
+        name: naehfein
+        group: www-data
+        createhome: yes
+        password: "{{ naehfein_password }}"
+    - template:
+      args:
+        src: templates/sudoer.j2
+        dest: "/etc/sudoers.d/{{ item.sudoer }}"
+        validate: 'visudo -cf %s'
+        backup: yes
+        mode: 0440
+        owner: root
+        group: root
+      tags: provision
+      with_items:
+        - { sudoer: admin }
+        - { sudoer: riethmayer }
