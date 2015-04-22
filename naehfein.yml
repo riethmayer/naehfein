@@ -1,6 +1,5 @@
 ---
 - hosts: all
-  remote_user: root
   sudo: True
   vars:
     naehfein_password: $1$riethmay$O8ZLVLj25yKx/KU.dAm7C/
